@@ -1,0 +1,59 @@
+name: Hardware test report
+description: Report the result of the test protocol (docs/testing.md) on your machine.
+title: "Test report: <model>, <kernel>"
+labels: ["hardware-test"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing! Follow [docs/testing.md](https://github.com/iskigow/macbookair6-cs4208/blob/main/docs/testing.md) first.
+        Attach the `evidence-*.txt` files written by `scripts/collect-evidence.sh`
+        (read them first; they contain no personal data, and you may edit them).
+  - type: input
+    id: model
+    attributes:
+      label: Model
+      description: From the evidence file, "product" (e.g. MacBookAir6,2).
+    validations:
+      required: true
+  - type: input
+    id: kernel
+    attributes:
+      label: Kernel and distribution
+      description: From the evidence file, "kernel" and "os".
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version tested
+      description: Release tag or commit (e.g. v0.1.0).
+    validations:
+      required: true
+  - type: input
+    id: headset
+    attributes:
+      label: Headset / headphones used
+      description: e.g. "Apple EarPods (3.5 mm)", "generic 4-pole CTIA headset", "3-pole headphones".
+  - type: checkboxes
+    id: steps
+    attributes:
+      label: Results (tick the steps that worked as expected)
+      options:
+        - label: "1. Headset mic records voice (RMS voice clearly above silence)"
+        - label: "2. 3-pole headphones: input back on the internal mic"
+        - label: "3. Unplug: speakers and internal mic"
+        - label: "4. Idle and resume: no output/input switching"
+        - label: "5. Plug while idle: sound starts in the headset"
+        - label: "6. Reboot with the headset plugged: headset mic selected"
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence files
+      description: Drag the evidence-*.txt files here.
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: What did not work, or anything else

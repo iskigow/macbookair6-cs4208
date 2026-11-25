@@ -1,0 +1,7 @@
+Header set for Ubuntu 7.0.0-43/-44-generic kernels.
+
+hda_local.h is copied from the Ubuntu kernel source (tag Ubuntu-7.0.0-44.44,
+identical in Ubuntu-7.0.0-43.43). It differs from mainline v7.0 only by the
+extra member "struct snd_kcontrol *share_spdif_kctl" in struct hda_multi_out,
+which changes the layout of struct hda_gen_spec. Building against the mainline
+header on these kernels would corrupt memory, so the header must match.

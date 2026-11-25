@@ -1,0 +1,12 @@
+# Pristine import: Linux v7.0 (git.kernel.org torvalds/linux.git, tag v7.0)
+# sha256  path (relative to src/)
+44b7f25a946e0e7352e2200f8195adf7ceae0969597f7c5738f96a6a6843dcd0  sound/hda/codecs/cirrus/cs420x.c
+9175959750d86f715d15eb2e4c063a95861ed7d737418e9f55843b1af04446d6  sound/hda/codecs/generic.h
+59c9e34e50f22e36ddc45dc22ca822838104e745884e6841bee73e65876a0716  sound/hda/common/hda_auto_parser.h
+b6af84afebab898958e2a972acab3783ed1849c826961f8333f01bd127572b49  sound/hda/common/hda_jack.h
+8271e0fafcf178cf77a783547ae44897dd19bf63f416c621175f04536159f7e4  sound/hda/common/hda_local.h
+
+# Header sets (packaging/headers/)
+# ubuntu-7.0/hda_local.h: git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux/+git/resolute,
+# tag Ubuntu-7.0.0-44.44 (identical in Ubuntu-7.0.0-43.43)
+21b31260451c5fd4868f030cad31b86012acd3e5091caaa39a902d648073d2a9  ubuntu-7.0/hda_local.h
