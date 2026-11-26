@@ -16,7 +16,7 @@ Experimental. The fix works on the maintainer's MacBookAir6,1 and is
 being merged here as a series of reviewed pull requests, one per future
 kernel patch. Releases are listed under
 [Releases](https://github.com/iskigow/macbookair6-cs4208/releases); the
-commands below install `v0.1.1`.
+commands below install `v0.1.2`.
 
 With the fix:
 
@@ -79,8 +79,8 @@ complete the enrollment in the blue MokManager screen.
 ```sh
 git clone https://github.com/iskigow/macbookair6-cs4208.git
 cd macbookair6-cs4208
-git archive --prefix=macbookair6-cs4208-0.1.1/ v0.1.1 | sudo tar -x -C /usr/src
-sudo dkms install macbookair6-cs4208/0.1.1
+git archive --prefix=macbookair6-cs4208-0.1.2/ v0.1.2 | sudo tar -x -C /usr/src
+sudo dkms install macbookair6-cs4208/0.1.2
 sudo reboot
 ```
 
@@ -90,7 +90,7 @@ running kernel: if another supported kernel is already installed, build
 for it too (`ls /lib/modules` lists the installed kernels):
 
 ```sh
-sudo dkms install macbookair6-cs4208/0.1.1 -k <kernel release>
+sudo dkms install macbookair6-cs4208/0.1.2 -k <kernel release>
 ```
 
 ### Optional: keep the HDA controller awake
@@ -124,8 +124,8 @@ git fetch --tags
 ## Uninstall
 
 ```sh
-sudo dkms remove macbookair6-cs4208/0.1.1 --all
-sudo rm -r /usr/src/macbookair6-cs4208-0.1.1
+sudo dkms remove macbookair6-cs4208/0.1.2 --all
+sudo rm -r /usr/src/macbookair6-cs4208-0.1.2
 sudo rm -f /etc/modprobe.d/macbookair-audio.conf   # if you installed it
 sudo reboot
 ```
