@@ -5,9 +5,11 @@
  * Copyright (c) 2009 Takashi Iwai <tiwai@suse.de>
  */
 
+#include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/module.h>
+#include <linux/workqueue.h>
 #include <sound/core.h>
 #include <linux/pci.h>
 #include <sound/tlv.h>
@@ -28,6 +30,10 @@ struct cs_spec {
 	unsigned int gpio_always_on; /* GPIO bits kept high in any jack state */
 
 	bool mba6_hsmic; /* MacBookAir6,x combo-jack headset mic */
+	bool hsmic_present; /* last headset mic probe result */
+	int hsmic_hp_last; /* HP jack state at the last probe, -1: unknown */
+	struct delayed_work hsmic_work;
+	struct hda_codec *codec;
 
 	hda_nid_t vendor_nid;
 
@@ -120,6 +126,137 @@ static inline void cs_vendor_coef_set(struct hda_codec *codec, unsigned int idx,
  * CS421x auto-output redirecting
  * HP/SPK/SPDIF
  */
+
+/*
+ * MacBookAir6,x headset mic presence detection
+ *
+ * Pin 0x18 never reports presence. The macOS driver instead probes the
+ * mic line with a comparator of the vendor widget: with the comparator
+ * enabled, bit 8 of coefficient 0x1f reads back set if a mic is
+ * connected, and it must read clear again once the comparator is off
+ * (3-pole headphones keep the bit set in both states). The mic bias of
+ * pin 0x18 has to be on for the probe.
+ */
+#define CS4208_HSMIC_PIN	0x18
+
+static bool cs4208_mba6_hsmic_probe(struct hda_codec *codec)
+{
+	unsigned int coef_1c, coef_1d, vstate, on, off;
+
+	coef_1d = cs_vendor_coef_get(codec, 0x1d);
+	cs_vendor_coef_set(codec, 0x1d, (coef_1d & ~0x3e) | 0x34);
+	vstate = snd_hda_codec_read(codec, CS4208_VENDOR_NID, 0, 0xff1, 0);
+	snd_hda_codec_write(codec, CS4208_VENDOR_NID, 0, 0x7f1,
+			    vstate & 0xff7f);
+	coef_1c = cs_vendor_coef_get(codec, 0x1c);
+	cs_vendor_coef_set(codec, 0x1c, coef_1c | 0x2000);
+	msleep(20);
+	on = cs_vendor_coef_get(codec, 0x1f);
+	cs_vendor_coef_set(codec, 0x1d,
+			   cs_vendor_coef_get(codec, 0x1d) & ~0x3e);
+	off = cs_vendor_coef_get(codec, 0x1f);
+
+	cs_vendor_coef_set(codec, 0x1c, coef_1c);
+	snd_hda_codec_write(codec, CS4208_VENDOR_NID, 0, 0x7f1,
+			    vstate & 0xffff);
+	cs_vendor_coef_set(codec, 0x1d, coef_1d);
+
+	codec_dbg(codec, "headset mic probe: 0x1f on=0x%x off=0x%x\n",
+		  on, off);
+	return (on & 0x100) && !(off & 0x100);
+}
+
+/*
+ * Feed the probe result into the jack table in place of the empty pin
+ * sense, so that both the "Mic Jack" control and the generic auto-mic
+ * switch follow it.
+ */
+static void cs4208_mba6_hsmic_apply(struct hda_codec *codec)
+{
+	struct cs_spec *spec = codec->spec;
+	struct hda_jack_tbl *jack;
+
+	jack = snd_hda_jack_tbl_get(codec, CS4208_HSMIC_PIN);
+	if (!jack)
+		return;
+	jack->pin_sense = spec->hsmic_present ? AC_PINSENSE_PRESENCE : 0;
+	jack->jack_dirty = 0;
+}
+
+static void cs4208_mba6_hsmic_set(struct hda_codec *codec, bool present)
+{
+	struct cs_spec *spec = codec->spec;
+	struct hda_jack_callback *cb;
+	struct hda_jack_tbl *jack;
+
+	spec->hsmic_present = present;
+	cs4208_mba6_hsmic_apply(codec);
+	jack = snd_hda_jack_tbl_get(codec, CS4208_HSMIC_PIN);
+	if (jack) {
+		/*
+		 * Run the pin's callbacks (path power, auto-mic) like an
+		 * unsolicited event would, but without marking the jack
+		 * dirty, which would re-read the hardware pin sense.
+		 */
+		for (cb = jack->callback; cb; cb = cb->next) {
+			cb->jack = jack;
+			cb->unsol_res = 0;
+			cb->func(codec, cb);
+		}
+	}
+	snd_hda_jack_report_sync(codec);
+}
+
+static void cs4208_mba6_hsmic_work(struct work_struct *work)
+{
+	struct cs_spec *spec = container_of(to_delayed_work(work),
+					    struct cs_spec, hsmic_work);
+	struct hda_codec *codec = spec->codec;
+	bool present = false;
+
+	snd_hda_power_up(codec);
+	if (spec->hsmic_hp_last > 0) {
+		snd_hda_codec_write(codec, CS4208_HSMIC_PIN, 0,
+				    AC_VERB_SET_POWER_STATE, AC_PWRST_D0);
+		msleep(20);
+		present = cs4208_mba6_hsmic_probe(codec);
+	}
+	codec_dbg(codec, "headset mic %s\n", present ? "present" : "absent");
+	cs4208_mba6_hsmic_set(codec, present);
+	snd_hda_power_down(codec);
+}
+
+static void cs4208_mba6_hsmic_update(struct hda_codec *codec)
+{
+	struct cs_spec *spec = codec->spec;
+	hda_nid_t hp_pin = spec->gen.autocfg.hp_pins[0];
+	int hp;
+
+	if (!hp_pin)
+		return;
+	hp = snd_hda_jack_detect(codec, hp_pin);
+	if (hp == spec->hsmic_hp_last)
+		return;
+	spec->hsmic_hp_last = hp;
+	if (hp) {
+		/* the macOS driver waits 500 ms before probing, too */
+		schedule_delayed_work(&spec->hsmic_work,
+				      msecs_to_jiffies(500));
+	} else {
+		cancel_delayed_work(&spec->hsmic_work);
+		cs4208_mba6_hsmic_set(codec, false);
+	}
+}
+
+/*
+ * Own HP jack callback: the automute hook is not called when
+ * userspace disables "Auto-Mute Mode".
+ */
+static void cs4208_mba6_hp_jack_cb(struct hda_codec *codec,
+				   struct hda_jack_callback *cb)
+{
+	cs4208_mba6_hsmic_update(codec);
+}
 
 static void cs_automute(struct hda_codec *codec)
 {
@@ -265,11 +402,21 @@ static int cs_init(struct hda_codec *codec)
 	} else if (spec->vendor_nid == CS4208_VENDOR_NID) {
 		snd_hda_sequence_write(codec, cs4208_coef_init_verbs);
 		/* enable the headset mic path of the combo jack */
-		if (spec->mba6_hsmic)
+		if (spec->mba6_hsmic) {
 			cs_vendor_coef_set(codec, 0x1a, 0xa6);
+			/*
+			 * Keep the last probed state across resume and
+			 * re-probe once the HP jack state is known.
+			 */
+			cs4208_mba6_hsmic_apply(codec);
+			spec->hsmic_hp_last = -1;
+		}
 	}
 
 	snd_hda_gen_init(codec);
+
+	if (spec->mba6_hsmic)
+		cs4208_mba6_hsmic_update(codec);
 
 	if (spec->gpio_mask) {
 		spec->gpio_data |= spec->gpio_always_on;
@@ -618,17 +765,27 @@ static void cs4208_fixup_gpio0(struct hda_codec *codec,
  * The mic line is only connected when GPIO4 is driven high and vendor
  * coefficient 0x1a is set to 0xa6, as the macOS driver does for a CTIA
  * headset; without both, pin 0x18 records nothing but the ADC noise floor.
- * The pin does not report presence, so expose it without jack detection.
+ * The pin does not report presence; it is probed when the HP jack is
+ * plugged, see cs4208_mba6_hsmic_probe().
  */
 static void cs4208_fixup_mba6_hsmic(struct hda_codec *codec,
 				    const struct hda_fixup *fix, int action)
 {
 	static const struct hda_pintbl pincfgs[] = {
-		{ 0x18, 0x03ab9130 }, /* headset mic, no presence detect */
+		{ 0x18, 0x03ab9030 }, /* headset mic jack */
 		{ }
 	};
 	struct cs_spec *spec = codec->spec;
+	hda_nid_t hp_pin;
 
+	if (action == HDA_FIXUP_ACT_PROBE) {
+		hp_pin = spec->gen.autocfg.hp_pins[0];
+		if (!hp_pin)
+			return;
+		snd_hda_jack_detect_enable_callback(codec, hp_pin,
+						    cs4208_mba6_hp_jack_cb);
+		return;
+	}
 	if (action != HDA_FIXUP_ACT_PRE_PROBE)
 		return;
 
@@ -638,6 +795,9 @@ static void cs4208_fixup_mba6_hsmic(struct hda_codec *codec,
 	spec->gpio_dir |= spec->gpio_always_on;
 	spec->gpio_data |= spec->gpio_always_on;
 	spec->mba6_hsmic = true;
+	spec->codec = codec;
+	spec->hsmic_hp_last = -1;
+	INIT_DELAYED_WORK(&spec->hsmic_work, cs4208_mba6_hsmic_work);
 	/*
 	 * The ADC input amp is shared by all connection indices: writing the
 	 * (muted) amp of an unused input mutes the selected one as well.
@@ -804,9 +964,29 @@ static int cs_codec_probe(struct hda_codec *codec,
 	return err;
 }
 
+static void cs_remove(struct hda_codec *codec)
+{
+	struct cs_spec *spec = codec->spec;
+
+	if (spec->mba6_hsmic)
+		cancel_delayed_work_sync(&spec->hsmic_work);
+	snd_hda_gen_remove(codec);
+}
+
+static int cs_suspend(struct hda_codec *codec)
+{
+	struct cs_spec *spec = codec->spec;
+
+	/* not _sync: the work takes a power reference by itself */
+	if (spec->mba6_hsmic)
+		cancel_delayed_work(&spec->hsmic_work);
+	return 0;
+}
+
 static const struct hda_codec_ops cs_codec_ops = {
 	.probe = cs_codec_probe,
-	.remove = snd_hda_gen_remove,
+	.remove = cs_remove,
+	.suspend = cs_suspend,
 	.build_controls = cs_build_controls,
 	.build_pcms = snd_hda_gen_build_pcms,
 	.init = cs_init,
