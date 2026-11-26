@@ -8,7 +8,12 @@ assistants (`Documentation/process/coding-assistants.rst`).
 
 - Claude Code (Anthropic's command-line coding assistant), model
   Claude Opus 5.5 (`claude-opus-5-5`).
-- Commit trailer: `Assisted-by: Claude:claude-opus-5-5`.
+- Commit messages: the body ends with "This change was prepared with the
+  assistance of Claude Code (Claude Opus 5.5); see docs/ai-disclosure.md."
+  The first commit also carries the `Assisted-by: Claude:claude-opus-5-5`
+  tag from `coding-assistants.rst`; later commits use only the sentence,
+  because `checkpatch.pl` does not accept that tag yet (it reports a
+  non-standard signature and an unrecognized e-mail address).
 
 ## What the assistant did
 

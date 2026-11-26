@@ -130,9 +130,11 @@ and no Apple files.
 This work was done with the help of an AI coding assistant (Claude Code,
 model Claude Opus 5.5): reverse engineering, driver code, tests and
 documentation. Every change is reviewed and tested on real hardware by
-the maintainer, who signs off on it and is responsible for it. Commits
-carry an `Assisted-by:` tag as described in the kernel's
-`Documentation/process/coding-assistants.rst`. Details:
+the maintainer, who signs off on it and is responsible for it. Each
+commit message ends with a line stating the assistance, and pull
+requests say what the tool did, following the kernel's
+`Documentation/process/generated-content.rst` and
+`coding-assistants.rst`. Details:
 [docs/ai-disclosure.md](docs/ai-disclosure.md).
 
 ## Repository layout

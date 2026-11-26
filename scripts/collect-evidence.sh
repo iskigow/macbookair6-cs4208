@@ -109,8 +109,12 @@ report() {
 			val=$(amixer -c "$card" cget "$id" 2>/dev/null | sed -n 's/.*: values=//p')
 			echo "  $name: ${val:-unknown}"
 		done
-		local src
-		src=$(amixer -c "$card" sget 'Capture Source' 2>/dev/null | sed -n "s/.*Item0: '\(.*\)'/\1/p" | head -n1)
+		local src=""
+		# enumerated control, not exposed as a "simple" mixer control: use cget
+		local raw idx
+		raw=$(amixer -c "$card" cget iface=MIXER,name='Capture Source' 2>/dev/null)
+		idx=$(sed -n 's/^ *: values=\([0-9]*\).*/\1/p' <<< "$raw")
+		[ -n "$idx" ] && src=$(sed -n "s/^ *; Item #$idx '\(.*\)'\$/\1/p" <<< "$raw")
 		echo "  capture_source: ${src:-automatic (no Capture Source control: kernel auto-mic)}"
 	else
 		echo "  jacks: not available"

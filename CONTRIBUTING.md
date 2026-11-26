@@ -48,7 +48,10 @@ adds `Co-developed-by:` followed by their own `Signed-off-by:`.
 AI assistance is welcome but must be disclosed, following the kernel's
 `Documentation/process/coding-assistants.rst` and `generated-content.rst`:
 
-- add `Assisted-by: AGENT_NAME:MODEL_VERSION [TOOLS]` to the commit;
+- end the commit message body with a sentence naming the tool and model,
+  e.g. "This change was prepared with the assistance of <tool> (<model>).";
+  the `Assisted-by:` tag described in `coding-assistants.rst` is not used
+  here for now, because `checkpatch.pl` rejects it;
 - say in the pull request what the tool did;
 - an AI tool must never add `Signed-off-by`: only you can certify the
   DCO, and you must understand and be able to defend every line.

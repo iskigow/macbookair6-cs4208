@@ -14,6 +14,6 @@
 - [ ] `scripts/checkpatch.pl --strict` (from a kernel tree) on `git format-patch -1`: no errors or warnings
 - [ ] `make -C packaging` builds without warnings; scripts in `tests/` pass
 - [ ] Tested on a MacBookAir6,x; `scripts/collect-evidence.sh` output attached
-- [ ] AI use disclosed (`Assisted-by:` tag and a note here), or no AI used
+- [ ] AI use disclosed (a sentence at the end of the commit message and a note here), or no AI used
 - [ ] `Signed-off-by:` added by me (DCO); commit signed (GPG/SSH)
 - [ ] `scripts/check-publish.sh` passes

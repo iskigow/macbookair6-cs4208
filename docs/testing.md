@@ -9,6 +9,10 @@ headphones (no mic), and the module installed (see the README).
 Run all commands as your normal user, from the repository directory.
 Commands needing root ask for `sudo`.
 
+Keep GNOME Settings → Sound (and any other app with an input level
+meter) closed during steps 4 and 5: its level meters keep the audio
+device open, so the codec never goes idle and those steps test nothing.
+
 ## 0. Before you start
 
 ```sh

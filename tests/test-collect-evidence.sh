@@ -90,7 +90,27 @@ nchk "AA-BB-CC" "MAC with dashes redacted"
 nchk "ee:0f" "MAC with colons redacted"
 nchk "Jane" "real name redacted"
 
-# 5. unknown option
+# 5. capture source read with cget (it is not a "simple" mixer control)
+mkdir -p "$work/fake/bin" "$work/fake/root/proc/asound/card3" "$work/fake/root/sys" "$work/c"
+printf 'Codec: Cirrus Logic CS4208\nVendor Id: 0x10134208\nSubsystem Id: 0x106b7100\n' \
+	> "$work/fake/root/proc/asound/card3/codec#0"
+cat > "$work/fake/bin/amixer" <<'AMX'
+#!/bin/sh
+case "$*" in
+*"controls"*) echo "numid=25,iface=MIXER,name='Capture Source'" ;;
+*"cget"*"Capture Source"*) printf "%s\n" "numid=25,iface=MIXER,name='Capture Source'" \
+	"  ; type=ENUMERATED,access=rw------,values=1,items=2" "  ; Item #0 'Mic'" \
+	"  ; Item #1 'Internal Mic'" "  : values=0" ;;
+*"sget"*) echo "amixer: Unable to find simple control 'Capture Source',0" >&2; exit 1 ;;
+esac
+AMX
+chmod +x "$work/fake/bin/amixer"
+(cd "$work/c" && PATH="$work/fake/bin:$PATH" EVIDENCE_SYSROOT="$work/fake/root" "$script" >/dev/null 2>&1)
+r=$(ls "$work/c"/evidence-*.txt 2>/dev/null | head -1)
+grep -q '^  capture_source: Mic$' "$r" 2>/dev/null && ok "capture source read with cget" \
+	|| { bad "capture source: $(grep capture_source "$r" 2>/dev/null)"; }
+
+# 6. unknown option
 "$script" --bogus > /dev/null 2>&1; rc=$?
 [ $rc -eq 2 ] && ok "unknown option rejected (2)" || bad "unknown option rc=$rc"
 exit $fail
