@@ -77,6 +77,28 @@ target kernel exactly. To add a kernel:
 Kernels before 6.17 keep this driver in `sound/pci/hda/patch_cirrus.c`
 and need a separate port (see the issue).
 
+## Releasing
+
+The version is written only in `VERSION`; `tests/test-version.sh`
+checks that `dkms.conf` agrees with it, that the README does not
+hard-code it, and that every release tag carries its own version.
+
+`main` always carries the **next** version: after `v0.1.2` is released,
+`VERSION` says `0.1.3`, so a build of `main` is never mistaken for a
+release. Users following the README install the latest release tag.
+
+1. Make sure `VERSION` is the version to release. If not (for example
+   the next release should be `0.2.0`), run
+   `scripts/set-version.sh <major.minor.patch>`, commit, open a pull
+   request and merge it.
+2. Create the signed tag on `main` and push it:
+   `git tag -s v<version> -m "v<version>" main && git push origin v<version>`.
+3. Create the GitHub release from the tag (source only, no binaries).
+   Releases are immutable once published, so check the tag first:
+   `git show v<version>:dkms.conf | grep PACKAGE_VERSION`.
+4. Open a pull request that bumps to the next version
+   (`scripts/set-version.sh <next patch version>`).
+
 ## Conduct
 
 This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md).
