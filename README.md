@@ -29,10 +29,14 @@ Headset buttons (play/pause, volume) do not work yet (see the issues).
 
 ## Tested
 
-| Machine | Kernel | Arch | Result |
-|---|---|---|---|
-| MacBookAir6,1 (board Mac-35C1E88140C3E6CF) | Ubuntu 7.0.0-43-generic, 7.0.0-44-generic | x86_64 | works |
-| MacBookAir6,2 | — | — | untested, help wanted |
+| Machine | Kernel | Arch | Result | Reports |
+|---|---|---|---|---|
+| MacBookAir6,1 (board Mac-35C1E88140C3E6CF) | Ubuntu 7.0.0-43-generic, 7.0.0-44-generic | x86_64 | works | [#16](https://github.com/iskigow/macbookair6-cs4208/issues/16) |
+| MacBookAir6,2 | — | — | untested | help wanted: [#7](https://github.com/iskigow/macbookair6-cs4208/issues/7) |
+
+All test reports, open and closed, are listed under the
+[`hardware-test`](https://github.com/iskigow/macbookair6-cs4208/issues?q=label%3Ahardware-test)
+label.
 
 The code is architecture-independent and only changes behaviour on codecs
 with subsystem ID 106b:7100 or 106b:7200 (MacBookAir6,x); every other
