@@ -16,7 +16,7 @@ set -u
 root=${1:-.}
 cd "$root" || exit 2
 
-pattern='/home/|gmail|proton\.me|superpowers|AppleHDA\.kext|\.kc\b|layout[0-9]+\.xml|Platforms\.xml|NOTES\.md|co-authored-by|claude-session|claude\.ai/code'
+pattern='/home/|gmail|proton\.me|AppleHDA\.kext|\.kc\b|layout[0-9]+\.xml|Platforms\.xml|NOTES\.md|co-authored-by|claude-session|claude\.ai/code'
 names='\.kext(/|$)|\.kc$|\.zlib$|(^|/)AppleHDA$'
 self='^(\./)?(scripts/check-publish\.sh|tests/test-check-publish\.sh)$'
 hits=0

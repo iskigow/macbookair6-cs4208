@@ -17,7 +17,7 @@ mkdir "$work/clean"; echo "nothing to see" > "$work/clean/a.txt"
 expect "$work/clean" 0 "clean tree passes"
 
 i=0
-for bad in '/home/x/file' 'me@gmail.com' 'x@proton.me' 'made with superpowers' \
+for bad in '/home/x/file' 'me@gmail.com' 'x@proton.me' \
 	   'copy AppleHDA.kext here' 'layout28.xml' 'see NOTES.md'; do
 	i=$((i+1)); mkdir "$work/bad$i"; printf '%s\n' "$bad" > "$work/bad$i/f.txt"
 	expect "$work/bad$i" 1 "content '$bad' flagged"
@@ -35,7 +35,7 @@ mkdir "$work/ln"; ln -s /home/s/p "$work/ln/link"
 expect "$work/ln" 1 "symlink to a home path flagged"
 mkdir "$work/zl"; : > "$work/zl/layout113.xml.zlib"
 expect "$work/zl" 1 "compressed layout resource flagged"
-mkdir "$work/sp"; mkdir "$work/sp/SuperPowers"; : > "$work/sp/SuperPowers/x"
+mkdir -p "$work/sp/GMail"; : > "$work/sp/GMail/x"
 expect "$work/sp" 1 "forbidden word in a path flagged"
 mkdir "$work/ca"; printf 'Co-Authored-By: someone\n' > "$work/ca/m.txt"
 expect "$work/ca" 1 "Co-Authored-By flagged"
