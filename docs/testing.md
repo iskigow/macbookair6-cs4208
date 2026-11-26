@@ -62,9 +62,15 @@ on the internal mic. Play a sound to check the speakers.
 
 ## 5. Plug while idle
 
+This step depends on the optional setting that keeps the HDA controller
+awake (README, "Optional: keep the HDA controller awake"). The evidence
+report shows it as `power_save_controller: N`.
+
 1. Unplug everything and leave the machine idle for 30 seconds.
 2. Plug the headset, then play a sound.
-3. Expected: the sound starts in the headset (not on the speakers first).
+3. Expected with the setting: the sound starts in the headset. Without
+   it, the sound starts on the speakers and moves to the headset a
+   moment later; that is a known limitation, report which one you saw.
 
 ## 6. Reboot with the headset plugged
 

@@ -166,8 +166,10 @@ idle: the codec was off for 28.3 s (`power_off_acct`) with the
 controller active, and a plug while idle was reported immediately, so
 sound started on the headset. The parameter is only used to decide
 whether the controller may runtime-suspend; it also applies to the HDMI
-audio controller. A kernel-side fix (not losing plug events while the
-controller is suspended) is tracked as an issue.
+audio controller. The repository ships it as the optional
+`modprobe.d/macbookair-audio.conf` (see the README). A kernel-side fix
+(not losing plug events while the controller is suspended) is tracked as
+an issue.
 
 ### Note: power_save=10
 

@@ -75,11 +75,29 @@ sudo reboot
 DKMS keeps a copy of the original module and rebuilds this one when a
 supported kernel is installed.
 
+### Optional: keep the HDA controller awake
+
+By default Linux runtime-suspends the whole HDA controller when audio is
+idle, and plug events are lost while it sleeps: if you plug a headset
+into an idle machine, the next sound starts on the speakers and then
+moves to the headset. Keeping the controller awake fixes this; the codec
+itself still powers down when idle (measured: off 28.3 s out of 30 s).
+The cost is a slightly higher idle power use of the controller (not
+measured), and the setting also applies to the HDMI audio controller.
+
+```sh
+sudo install -m 644 modprobe.d/macbookair-audio.conf /etc/modprobe.d/
+sudo reboot
+```
+
+Details in [docs/findings.md](docs/findings.md#5-keep-the-hda-controller-awake).
+
 ## Uninstall
 
 ```sh
 sudo dkms remove macbookair6-cs4208/0.1.0 --all
 sudo rm -r /usr/src/macbookair6-cs4208-0.1.0
+sudo rm -f /etc/modprobe.d/macbookair-audio.conf   # if you installed it
 sudo reboot
 ```
 
@@ -123,6 +141,7 @@ carry an `Assisted-by:` tag as described in the kernel's
 src/        kernel files at their upstream paths (pristine v7.0 + fixes)
 packaging/  out-of-tree build and per-kernel internal-header sets
 dkms.conf   DKMS package definition
+modprobe.d/ optional setting that keeps the HDA controller awake
 scripts/    collect-evidence.sh (test reports), check-publish.sh
 tests/      tests for the packaging and scripts
 docs/       findings, testing protocol, AI disclosure
