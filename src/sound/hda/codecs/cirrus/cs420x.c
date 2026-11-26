@@ -212,17 +212,22 @@ static void cs4208_mba6_hsmic_work(struct work_struct *work)
 	struct cs_spec *spec = container_of(to_delayed_work(work),
 					    struct cs_spec, hsmic_work);
 	struct hda_codec *codec = spec->codec;
+	hda_nid_t hp_pin = spec->gen.autocfg.hp_pins[0];
 	bool present = false;
 
 	snd_hda_power_up(codec);
-	if (spec->hsmic_hp_last > 0) {
+	/* act on the settled HP state, not on the one that scheduled us */
+	if (hp_pin && snd_hda_jack_detect(codec, hp_pin)) {
 		snd_hda_codec_write(codec, CS4208_HSMIC_PIN, 0,
 				    AC_VERB_SET_POWER_STATE, AC_PWRST_D0);
 		msleep(20);
 		present = cs4208_mba6_hsmic_probe(codec);
 	}
-	codec_dbg(codec, "headset mic %s\n", present ? "present" : "absent");
-	cs4208_mba6_hsmic_set(codec, present);
+	if (present != spec->hsmic_present) {
+		codec_dbg(codec, "headset mic %s\n",
+			  present ? "present" : "absent");
+		cs4208_mba6_hsmic_set(codec, present);
+	}
 	snd_hda_power_down(codec);
 }
 
@@ -238,14 +243,14 @@ static void cs4208_mba6_hsmic_update(struct hda_codec *codec)
 	if (hp == spec->hsmic_hp_last)
 		return;
 	spec->hsmic_hp_last = hp;
-	if (hp) {
-		/* the macOS driver waits 500 ms before probing, too */
-		schedule_delayed_work(&spec->hsmic_work,
-				      msecs_to_jiffies(500));
-	} else {
-		cancel_delayed_work(&spec->hsmic_work);
-		cs4208_mba6_hsmic_set(codec, false);
-	}
+	/*
+	 * Debounce: when the codec resumes, the HP pin sense reads
+	 * "unplugged" for about 50-100 ms. Re-check once the state has
+	 * settled (the macOS driver also waits 500 ms before probing) and
+	 * only report a change of the mic state.
+	 */
+	mod_delayed_work(system_wq, &spec->hsmic_work,
+			 msecs_to_jiffies(hp ? 500 : 300));
 }
 
 /*
