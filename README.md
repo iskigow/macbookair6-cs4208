@@ -75,7 +75,13 @@ sudo reboot
 ```
 
 DKMS keeps a copy of the original module and rebuilds this one when a
-supported kernel is installed.
+supported kernel is installed later. `dkms install` only builds for the
+running kernel: if another supported kernel is already installed, build
+for it too (`ls /lib/modules` lists the installed kernels):
+
+```sh
+sudo dkms install macbookair6-cs4208/0.1.1 -k <kernel release>
+```
 
 ### Optional: keep the HDA controller awake
 
