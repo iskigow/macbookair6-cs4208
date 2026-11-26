@@ -25,9 +25,11 @@ patch series, so it follows the kernel's development process.
   warnings.
 - **Hardware evidence:** driver changes need a test on a MacBookAir6,x;
   attach the output of `scripts/collect-evidence.sh` to the pull request.
-- **Signed commits:** `main` only accepts commits with a verified GitHub
-  signature (GPG, SSH or S/MIME). Pull requests are merged by
-  fast-forward, so your signed commit lands unchanged.
+- **Signed commits, through a pull request:** changes reach `main` only
+  through a pull request, and `main` only accepts commits with a verified
+  GitHub signature (GPG, SSH or S/MIME). Force pushes and deleting `main`
+  are refused. The maintainer merges by fast-forward, so your signed
+  commit lands unchanged.
 - Before pushing, run the scripts in `tests/`. The pre-push hook
   (`ln -s ../../scripts/pre-push .git/hooks/pre-push`) runs
   `scripts/check-publish.sh` on every push.
