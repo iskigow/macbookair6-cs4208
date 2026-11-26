@@ -1039,9 +1039,14 @@ static void cs_remove(struct hda_codec *codec)
 	struct cs_spec *spec = codec->spec;
 
 	if (spec->mba6_hsmic) {
-		/* hp_verify_work can re-arm hsmic_work: cancel it first */
-		cancel_delayed_work_sync(&spec->hp_verify_work);
-		cancel_delayed_work_sync(&spec->hsmic_work);
+		/*
+		 * Unsolicited events are still delivered while the codec is
+		 * removed, and the HP jack callback queues hsmic_work:
+		 * disable the works rather than cancel them, so that nothing
+		 * can queue them again before spec is freed.
+		 */
+		disable_delayed_work_sync(&spec->hp_verify_work);
+		disable_delayed_work_sync(&spec->hsmic_work);
 	}
 	snd_hda_gen_remove(codec);
 }
