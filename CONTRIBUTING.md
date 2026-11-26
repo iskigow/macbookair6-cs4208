@@ -28,8 +28,9 @@ patch series, so it follows the kernel's development process.
 - **Signed commits:** `main` only accepts commits with a verified GitHub
   signature (GPG, SSH or S/MIME). Pull requests are merged by
   fast-forward, so your signed commit lands unchanged.
-- Before pushing, run `scripts/check-publish.sh` and the scripts in
-  `tests/`.
+- Before pushing, run the scripts in `tests/`. The pre-push hook
+  (`ln -s ../../scripts/pre-push .git/hooks/pre-push`) runs
+  `scripts/check-publish.sh` on every push.
 
 ## Developer Certificate of Origin
 
@@ -87,17 +88,33 @@ hard-code it, and that every release tag carries its own version.
 `VERSION` says `0.1.3`, so a build of `main` is never mistaken for a
 release. Users following the README install the latest release tag.
 
-1. Make sure `VERSION` is the version to release. If not (for example
-   the next release should be `0.2.0`), run
-   `scripts/set-version.sh <major.minor.patch>`, commit, open a pull
-   request and merge it.
-2. Create the signed tag on `main` and push it:
-   `git tag -s v<version> -m "v<version>" main && git push origin v<version>`.
+1. Open one **release pull request** whose last commit bumps to the
+   following version (`scripts/set-version.sh <next version>`). The
+   commit before it is the last commit of the release. If the release
+   needs another number than `VERSION` says (for example `0.2.0`), set
+   it with `scripts/set-version.sh` in an earlier commit of the same
+   pull request.
+2. Merge it (fast-forward), then tag the commit just before the bump and
+   push the tag:
+
+   ```sh
+   git tag -s v<version> -m "v<version>" main^
+   git push origin v<version>
+   ```
 3. Create the GitHub release from the tag (source only, no binaries).
-   Releases are immutable once published, so check the tag first:
-   `git show v<version>:dkms.conf | grep PACKAGE_VERSION`.
-4. Open a pull request that bumps to the next version
-   (`scripts/set-version.sh <next patch version>`).
+   Releases are immutable once published.
+
+GitHub rejects tags not named `v*` and does not allow moving or
+deleting a tag. Install the pre-push hook so that mistakes are caught
+before the tag leaves your machine:
+
+```sh
+ln -s ../../scripts/pre-push .git/hooks/pre-push
+```
+
+It refuses a push if `scripts/check-publish.sh` fails, and a tag that is
+not a signed `vX.Y.Z` tag on a commit of the remote `main` whose
+`VERSION` and `dkms.conf` say `X.Y.Z`.
 
 ## Conduct
 

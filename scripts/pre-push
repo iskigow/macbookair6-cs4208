@@ -1,0 +1,62 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Git pre-push hook. Install it in your clone with:
+#
+#   ln -s ../../scripts/pre-push .git/hooks/pre-push
+#
+# It refuses a push when:
+#  - scripts/check-publish.sh finds private data or Apple files;
+#  - a pushed tag is not a signed, annotated tag named vX.Y.Z;
+#  - the tag's commit is not on the remote's main (push main first);
+#  - VERSION or dkms.conf at the tag's commit do not say X.Y.Z.
+#
+# Release flow (see CONTRIBUTING.md, "Releasing"): the release pull
+# request ends with the commit that bumps VERSION to the next version, so
+# the tag goes on the commit just before it.
+set -u
+remote=${1:-origin}
+top=$(git rev-parse --show-toplevel) || exit 1
+zero=0000000000000000000000000000000000000000
+fail=0
+err() { echo "pre-push: $*" >&2; fail=1; }
+
+tags=()
+while read -r lref lsha rref rsha; do
+	[ "$lsha" = "$zero" ] && continue            # deleting a ref
+	case "$rref" in refs/tags/*) tags+=("${rref#refs/tags/} $lsha") ;; esac
+done
+
+if [ -x "$top/scripts/check-publish.sh" ]; then
+	"$top/scripts/check-publish.sh" "$top" >/dev/null 2>&1 ||
+		err "scripts/check-publish.sh failed; run it to see what it found"
+fi
+
+if [ ${#tags[@]} -gt 0 ]; then
+	git fetch -q "$remote" main 2>/dev/null
+	main=$(git rev-parse -q --verify FETCH_HEAD 2>/dev/null ||
+	       git rev-parse -q --verify "refs/remotes/$remote/main")
+	for t in "${tags[@]}"; do
+		name=${t% *}; obj=${t#* }
+		if [[ ! $name =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+			err "tag '$name' is not named vX.Y.Z"; continue
+		fi
+		ver=${BASH_REMATCH[1]}
+		if [ "$(git cat-file -t "$obj" 2>/dev/null)" != tag ]; then
+			err "tag $name is not an annotated tag (use git tag -s)"; continue
+		fi
+		git verify-tag "$obj" >/dev/null 2>&1 || err "tag $name has no valid signature (use git tag -s)"
+		commit=$(git rev-parse "$obj^{commit}")
+		if [ -z "$main" ] || ! git merge-base --is-ancestor "$commit" "$main"; then
+			err "tag $name points to $(git rev-parse --short "$commit"), which is not on $remote/main"
+		fi
+		# VERSION exists since 0.1.3; older releases only have dkms.conf
+		if git cat-file -e "$commit:VERSION" 2>/dev/null; then
+			v=$(git show "$commit:VERSION")
+			[ "$v" = "$ver" ] || err "tag $name: VERSION at its commit says '$v'"
+		fi
+		d=$(git show "$commit:dkms.conf" 2>/dev/null | sed -n 's/^PACKAGE_VERSION="\(.*\)"$/\1/p')
+		[ "$d" = "$ver" ] || err "tag $name: dkms.conf at its commit says '$d'"
+	done
+fi
+exit $fail
