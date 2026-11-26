@@ -25,6 +25,9 @@ struct cs_spec {
 	unsigned int gpio_data;
 	unsigned int gpio_eapd_hp; /* EAPD GPIO bit for headphones */
 	unsigned int gpio_eapd_speaker; /* EAPD GPIO bit for speakers */
+	unsigned int gpio_always_on; /* GPIO bits kept high in any jack state */
+
+	bool mba6_hsmic; /* MacBookAir6,x combo-jack headset mic */
 
 	hda_nid_t vendor_nid;
 
@@ -131,6 +134,7 @@ static void cs_automute(struct hda_codec *codec)
 		else
 			spec->gpio_data =
 				spec->gpio_eapd_hp | spec->gpio_eapd_speaker;
+		spec->gpio_data |= spec->gpio_always_on;
 		snd_hda_codec_write(codec, 0x01, 0,
 				    AC_VERB_SET_GPIO_DATA, spec->gpio_data);
 	}
@@ -260,11 +264,15 @@ static int cs_init(struct hda_codec *codec)
 		snd_hda_sequence_write(codec, cs_coef_init_verbs);
 	} else if (spec->vendor_nid == CS4208_VENDOR_NID) {
 		snd_hda_sequence_write(codec, cs4208_coef_init_verbs);
+		/* enable the headset mic path of the combo jack */
+		if (spec->mba6_hsmic)
+			cs_vendor_coef_set(codec, 0x1a, 0xa6);
 	}
 
 	snd_hda_gen_init(codec);
 
 	if (spec->gpio_mask) {
+		spec->gpio_data |= spec->gpio_always_on;
 		snd_hda_codec_write(codec, 0x01, 0, AC_VERB_SET_GPIO_MASK,
 				    spec->gpio_mask);
 		snd_hda_codec_write(codec, 0x01, 0, AC_VERB_SET_GPIO_DIRECTION,
@@ -564,6 +572,7 @@ enum {
 	CS4208_MBP11,
 	CS4208_MACMINI,
 	CS4208_GPIO0,
+	CS4208_MBA6_HSMIC,
 };
 
 static const struct hda_model_fixup cs4208_models[] = {
@@ -601,6 +610,39 @@ static void cs4208_fixup_gpio0(struct hda_codec *codec,
 		spec->gpio_mask = spec->gpio_dir =
 			spec->gpio_eapd_hp | spec->gpio_eapd_speaker;
 	}
+}
+
+/*
+ * MacBookAir6,1/6,2: headset mic on the combo jack (pin 0x18).
+ *
+ * The mic line is only connected when GPIO4 is driven high and vendor
+ * coefficient 0x1a is set to 0xa6, as the macOS driver does for a CTIA
+ * headset; without both, pin 0x18 records nothing but the ADC noise floor.
+ * The pin does not report presence, so expose it without jack detection.
+ */
+static void cs4208_fixup_mba6_hsmic(struct hda_codec *codec,
+				    const struct hda_fixup *fix, int action)
+{
+	static const struct hda_pintbl pincfgs[] = {
+		{ 0x18, 0x03ab9130 }, /* headset mic, no presence detect */
+		{ }
+	};
+	struct cs_spec *spec = codec->spec;
+
+	if (action != HDA_FIXUP_ACT_PRE_PROBE)
+		return;
+
+	snd_hda_apply_pincfgs(codec, pincfgs);
+	spec->gpio_always_on = 0x10; /* GPIO4: headset mic switch */
+	spec->gpio_mask |= spec->gpio_always_on;
+	spec->gpio_dir |= spec->gpio_always_on;
+	spec->gpio_data |= spec->gpio_always_on;
+	spec->mba6_hsmic = true;
+	/*
+	 * The ADC input amp is shared by all connection indices: writing the
+	 * (muted) amp of an unused input mutes the selected one as well.
+	 */
+	codec->single_adc_amp = 1;
 }
 
 static const struct hda_fixup cs4208_fixups[];
@@ -672,6 +714,14 @@ static const struct hda_fixup cs4208_fixups[] = {
 		.type = HDA_FIXUP_PINS,
 		.v.pins = mba6_pincfgs,
 		.chained = true,
+		.chain_id = CS4208_MBA6_HSMIC,
+	},
+	[CS4208_MBA6_HSMIC] = {
+		.type = HDA_FIXUP_FUNC,
+		.v.func = cs4208_fixup_mba6_hsmic,
+		/* cs4208_fixup_gpio0() sets the GPIO masks; run it first */
+		.chained = true,
+		.chained_before = true,
 		.chain_id = CS4208_GPIO0,
 	},
 	[CS4208_MBP11] = {
