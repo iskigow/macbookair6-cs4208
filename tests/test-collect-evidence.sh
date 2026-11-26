@@ -110,7 +110,18 @@ r=$(ls "$work/c"/evidence-*.txt 2>/dev/null | head -1)
 grep -q '^  capture_source: Mic$' "$r" 2>/dev/null && ok "capture source read with cget" \
 	|| { bad "capture source: $(grep capture_source "$r" 2>/dev/null)"; }
 
-# 6. unknown option
+# 6. dynamic debug state of the driver messages is reported
+mkdir -p "$work/dd/root/proc/dynamic_debug" "$work/dd/root/sys" "$work/dd/on" "$work/dd/off"
+ctl="$work/dd/root/proc/dynamic_debug/control"
+printf '%s\n' 'cs420x.c:166 [snd_hda_codec_cs420x]cs4208_mba6_hsmic_probe =p "headset mic probe"' \
+	'cs420x.c:229 [snd_hda_codec_cs420x]cs4208_mba6_hsmic_work =p "headset mic %s\n"' > "$ctl"
+(cd "$work/dd/on" && EVIDENCE_SYSROOT="$work/dd/root" "$script" >/dev/null 2>&1)
+grep -q '^  debug_messages: on$' "$work"/dd/on/evidence-*.txt 2>/dev/null && ok "debug messages reported on" || bad "debug messages on not reported"
+sed -i 's/ =p / =_ /' "$ctl"
+(cd "$work/dd/off" && EVIDENCE_SYSROOT="$work/dd/root" "$script" >/dev/null 2>&1)
+grep -q '^  debug_messages: off' "$work"/dd/off/evidence-*.txt 2>/dev/null && ok "debug messages reported off" || bad "debug messages off not reported"
+
+# 7. unknown option
 "$script" --bogus > /dev/null 2>&1; rc=$?
 [ $rc -eq 2 ] && ok "unknown option rejected (2)" || bad "unknown option rc=$rc"
 exit $fail

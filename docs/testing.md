@@ -30,6 +30,14 @@ If it says `loaded: no`, shows a path under `kernel/`, or the two
 srcversions differ, the stock driver is still running: check
 `dkms status` and reboot.
 
+Then turn on the driver's headset mic messages, so that the report can
+show when the mic was detected or removed. They are debug messages, off
+by default; this asks for `sudo` and lasts until the next reboot:
+
+```sh
+scripts/collect-evidence.sh --debug-on
+```
+
 ## 1. Headset mic records voice
 
 1. Plug the 4-pole headset.
@@ -76,10 +84,22 @@ report shows it as `power_save_controller: N`.
    it, the sound starts on the speakers and moves to the headset a
    moment later; that is a known limitation, report which one you saw.
 
+Before rebooting, save the log of steps 1–5 (the report only covers the
+current boot):
+
+```sh
+scripts/collect-evidence.sh
+```
+
 ## 6. Reboot with the headset plugged
 
 Reboot with the headset plugged. After login, the input should be the
 headset mic and output the headset, without switching back and forth.
+
+The reboot turned the driver messages off again: run
+`scripts/collect-evidence.sh --debug-on` once more before step 7. The
+detection made during boot is not logged, but the report still shows the
+jack states.
 
 ## 7. Report
 
@@ -87,9 +107,11 @@ Run the script once more with everything still plugged:
 
 ```sh
 scripts/collect-evidence.sh --record
+scripts/collect-evidence.sh --debug-off
 ```
 
-Open a *Hardware test report* issue, attach the `evidence-*.txt` files
+In the report, `debug_messages:` says whether the driver messages were
+logged. Open a *Hardware test report* issue, attach the `evidence-*.txt` files
 and fill in the result of each step above. Read the files first: they
 should contain no personal data, and you can edit anything you do not
 want to share.

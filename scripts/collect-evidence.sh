@@ -7,6 +7,13 @@
 #   scripts/collect-evidence.sh            facts only
 #   scripts/collect-evidence.sh --record   also records 5 s from the default
 #                                          input (2 s silence, then speech)
+#   scripts/collect-evidence.sh --debug-on   log the driver's headset mic
+#   scripts/collect-evidence.sh --debug-off  messages (needs sudo; off again
+#                                            after a reboot)
+#
+# The driver's "headset mic present/absent" messages are debug messages:
+# they are only logged while enabled with --debug-on, so enable them
+# before the test steps and disable them with --debug-off afterwards.
 #
 # No personal data is collected on purpose: no serial numbers, machine
 # IDs or network addresses are read. As a safety net, the free-text parts
@@ -22,7 +29,14 @@ record=0
 for a in "$@"; do
 	case "$a" in
 	--record) record=1 ;;
-	-h|--help) sed -n '3,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+	--debug-on|--debug-off)
+		[ "$a" = --debug-on ] && flag=+p || flag=-p
+		echo "running: echo 'module snd_hda_codec_cs420x $flag' | sudo tee /proc/dynamic_debug/control"
+		echo "module snd_hda_codec_cs420x $flag" | sudo tee /proc/dynamic_debug/control >/dev/null ||
+			{ echo "failed (is the module loaded?)" >&2; exit 1; }
+		echo "driver debug messages: ${a#--debug-}"
+		exit 0 ;;
+	-h|--help) sed -n '3,21p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
 	*) echo "unknown option: $a (see --help)" >&2; exit 2 ;;
 	esac
 done
@@ -137,6 +151,13 @@ report() {
 	echo
 
 	echo "[driver log]"
+	local dd n_on n_all
+	dd=$(grep "\[$MOD\]" "$PROC/dynamic_debug/control" 2>/dev/null)
+	n_all=$(grep -c . <<< "$dd"); n_on=$(grep -c ' =[a-z]*p[a-z]* ' <<< "$dd")
+	if [ -z "$dd" ]; then echo "  debug_messages: unknown (module not loaded or no dynamic debug)"
+	elif [ "$n_on" -eq "$n_all" ]; then echo "  debug_messages: on"
+	elif [ "$n_on" -eq 0 ]; then echo "  debug_messages: off (headset mic messages not logged; see --debug-on)"
+	else echo "  debug_messages: partial ($n_on of $n_all)"; fi
 	local log=""
 	if log=$(dmesg 2>/dev/null) && [ -n "$log" ]; then :
 	elif have journalctl && log=$(journalctl -q -k -b -o short-monotonic --no-pager 2>/dev/null |
