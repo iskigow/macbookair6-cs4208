@@ -33,6 +33,8 @@ struct cs_spec {
 	bool hsmic_present; /* last headset mic probe result */
 	int hsmic_hp_last; /* HP jack state at the last probe, -1: unknown */
 	struct delayed_work hsmic_work;
+	int hp_cached; /* last settled HP jack state, -1: unknown */
+	struct delayed_work hp_verify_work;
 	struct hda_codec *codec;
 
 	hda_nid_t vendor_nid;
@@ -260,7 +262,62 @@ static void cs4208_mba6_hsmic_update(struct hda_codec *codec)
 static void cs4208_mba6_hp_jack_cb(struct hda_codec *codec,
 				   struct hda_jack_callback *cb)
 {
+	struct cs_spec *spec = codec->spec;
+
+	spec->hp_cached = snd_hda_jack_detect(codec,
+					      spec->gen.autocfg.hp_pins[0]);
 	cs4208_mba6_hsmic_update(codec);
+}
+
+/*
+ * The HP pin sense reads "unplugged" for about 50-100 ms right after the
+ * codec resumes, which made userspace switch the output to the speaker
+ * and back at every resume. Keep the last settled HP state over resume
+ * (see cs_init()) and verify it once the sense has settled.
+ */
+static void cs4208_mba6_hp_verify_work(struct work_struct *work)
+{
+	struct cs_spec *spec = container_of(to_delayed_work(work),
+					    struct cs_spec, hp_verify_work);
+	struct hda_codec *codec = spec->codec;
+	hda_nid_t hp_pin = spec->gen.autocfg.hp_pins[0];
+	struct hda_jack_callback *cb;
+	struct hda_jack_tbl *jack;
+	int hp;
+
+	jack = snd_hda_jack_tbl_get(codec, hp_pin);
+	if (!jack)
+		return;
+	snd_hda_power_up(codec);
+	jack->jack_dirty = 1;
+	hp = snd_hda_jack_detect(codec, hp_pin);
+	if (hp != spec->hp_cached) {
+		/* a real plug change while the codec was suspended */
+		for (cb = jack->callback; cb; cb = cb->next) {
+			cb->jack = jack;
+			cb->unsol_res = 0;
+			cb->func(codec, cb);
+		}
+		snd_hda_jack_report_sync(codec);
+	}
+	snd_hda_power_down(codec);
+}
+
+static void cs4208_mba6_hp_resume_hold(struct hda_codec *codec)
+{
+	struct cs_spec *spec = codec->spec;
+	hda_nid_t hp_pin = spec->gen.autocfg.hp_pins[0];
+	struct hda_jack_tbl *jack;
+
+	if (!hp_pin || spec->hp_cached < 0)
+		return;
+	jack = snd_hda_jack_tbl_get(codec, hp_pin);
+	if (!jack)
+		return;
+	jack->pin_sense = spec->hp_cached ? AC_PINSENSE_PRESENCE : 0;
+	jack->jack_dirty = 0;
+	mod_delayed_work(system_wq, &spec->hp_verify_work,
+			 msecs_to_jiffies(200));
 }
 
 static void cs_automute(struct hda_codec *codec)
@@ -414,14 +471,20 @@ static int cs_init(struct hda_codec *codec)
 			 * re-probe once the HP jack state is known.
 			 */
 			cs4208_mba6_hsmic_apply(codec);
+			cs4208_mba6_hp_resume_hold(codec);
 			spec->hsmic_hp_last = -1;
 		}
 	}
 
 	snd_hda_gen_init(codec);
 
-	if (spec->mba6_hsmic)
+	if (spec->mba6_hsmic) {
+		hda_nid_t hp_pin = spec->gen.autocfg.hp_pins[0];
+
+		if (spec->hp_cached < 0 && hp_pin)
+			spec->hp_cached = snd_hda_jack_detect(codec, hp_pin);
 		cs4208_mba6_hsmic_update(codec);
+	}
 
 	if (spec->gpio_mask) {
 		spec->gpio_data |= spec->gpio_always_on;
@@ -803,6 +866,8 @@ static void cs4208_fixup_mba6_hsmic(struct hda_codec *codec,
 	spec->codec = codec;
 	spec->hsmic_hp_last = -1;
 	INIT_DELAYED_WORK(&spec->hsmic_work, cs4208_mba6_hsmic_work);
+	spec->hp_cached = -1;
+	INIT_DELAYED_WORK(&spec->hp_verify_work, cs4208_mba6_hp_verify_work);
 	/*
 	 * The ADC input amp is shared by all connection indices: writing the
 	 * (muted) amp of an unused input mutes the selected one as well.
@@ -973,8 +1038,11 @@ static void cs_remove(struct hda_codec *codec)
 {
 	struct cs_spec *spec = codec->spec;
 
-	if (spec->mba6_hsmic)
+	if (spec->mba6_hsmic) {
+		/* hp_verify_work can re-arm hsmic_work: cancel it first */
+		cancel_delayed_work_sync(&spec->hp_verify_work);
 		cancel_delayed_work_sync(&spec->hsmic_work);
+	}
 	snd_hda_gen_remove(codec);
 }
 
@@ -983,8 +1051,10 @@ static int cs_suspend(struct hda_codec *codec)
 	struct cs_spec *spec = codec->spec;
 
 	/* not _sync: the work takes a power reference by itself */
-	if (spec->mba6_hsmic)
+	if (spec->mba6_hsmic) {
+		cancel_delayed_work(&spec->hp_verify_work);
 		cancel_delayed_work(&spec->hsmic_work);
+	}
 	return 0;
 }
 
