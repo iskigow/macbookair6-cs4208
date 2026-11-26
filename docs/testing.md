@@ -91,24 +91,37 @@ report shows it as `power_save_controller: N`.
    it, the sound starts on the speakers and moves to the headset a
    moment later; that is a known limitation, report which one you saw.
 
-Before rebooting, save the log of steps 1–5 (the report only covers the
+## 6. Suspend and resume the machine
+
+Use the normal system suspend (close the lid, or choose Suspend), wait
+about 10 seconds, then wake the machine up. Check the result after each
+of these:
+
+1. Suspend with the headset plugged, resume: sound and input stay on the
+   headset, without switching back and forth.
+2. Suspend with the headset plugged, unplug it while suspended, resume:
+   sound on the speakers, input on the internal mic.
+3. Suspend with nothing plugged, plug the headset while suspended,
+   resume: sound and input on the headset.
+
+Before rebooting, save the log of steps 1–6 (the report only covers the
 current boot):
 
 ```sh
 scripts/collect-evidence.sh
 ```
 
-## 6. Reboot with the headset plugged
+## 7. Reboot with the headset plugged
 
 Reboot with the headset plugged. After login, the input should be the
 headset mic and output the headset, without switching back and forth.
 
 The reboot turned the driver messages off again: run
-`scripts/collect-evidence.sh --debug-on` once more before step 7. The
+`scripts/collect-evidence.sh --debug-on` once more before step 8. The
 detection made during boot is not logged, but the report still shows the
 jack states.
 
-## 7. Report
+## 8. Report
 
 Run the script once more with everything still plugged:
 

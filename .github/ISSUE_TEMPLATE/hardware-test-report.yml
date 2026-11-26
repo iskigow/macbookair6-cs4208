@@ -45,7 +45,8 @@ body:
         - label: "3. Unplug: speakers and internal mic"
         - label: "4. Idle and resume: no output/input switching"
         - label: "5. Plug while idle: sound starts in the headset"
-        - label: "6. Reboot with the headset plugged: headset mic selected"
+        - label: "6. Suspend/resume (lid): plugged, unplugged and plugged during sleep all end on the right device"
+        - label: "7. Reboot with the headset plugged: headset mic selected"
   - type: textarea
     id: evidence
     attributes:

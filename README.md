@@ -31,7 +31,7 @@ Headset buttons (play/pause, volume) do not work yet (see the issues).
 
 | Machine | Kernel | Arch | Result | Reports |
 |---|---|---|---|---|
-| MacBookAir6,1 (board Mac-35C1E88140C3E6CF) | Ubuntu 7.0.0-43-generic, 7.0.0-44-generic | x86_64 | works | [#16](https://github.com/iskigow/macbookair6-cs4208/issues/16) |
+| MacBookAir6,1 (board Mac-35C1E88140C3E6CF) | Ubuntu 7.0.0-44-generic (full test protocol); 7.0.0-43-generic (same sources, module machine code verified) | x86_64 | works | [#16](https://github.com/iskigow/macbookair6-cs4208/issues/16) |
 | MacBookAir6,2 | — | — | untested | help wanted: [#7](https://github.com/iskigow/macbookair6-cs4208/issues/7) |
 
 All test reports, open and closed, are listed under the
@@ -53,7 +53,13 @@ module for kernels that were verified to match:
 - Ubuntu `7.0.0-43-generic`, `7.0.0-44-generic`.
 
 On any other kernel DKMS skips the build and the stock driver keeps
-working (without the headset mic). A header set for mainline 7.0.x is
+working (without the headset mic). This includes routine kernel
+updates: after Ubuntu installs a newer kernel (for example
+7.0.0-45-generic), the headset mic stops working on that kernel until a
+release adds it. Check the
+[releases](https://github.com/iskigow/macbookair6-cs4208/releases) and
+[#8](https://github.com/iskigow/macbookair6-cs4208/issues/8), or keep
+booting a supported kernel from the boot menu. A header set for mainline 7.0.x is
 included but not yet verified. Support for other kernels is tracked in
 the issues; see [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-kernel) to
 help.
