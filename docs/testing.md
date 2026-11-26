@@ -49,10 +49,17 @@ scripts/collect-evidence.sh --debug-on
    scripts/collect-evidence.sh --record
    ```
 
-   The script records 5 seconds from the default input. Stay silent for
-   the first 2 seconds, then speak until it stops. The report shows the
-   RMS level of the silent part and of the voice part; voice should be
-   clearly higher (typically 20× or more).
+   The script records 5 seconds from the default input. Do it in a quiet
+   room (no fan, TV or music) with the input volume around 60 %: at 100 %
+   the mic boost is at maximum and background noise gets close to the
+   level of speech. Stay silent until "Speak now!", then speak
+   continuously, in a normal voice, until it stops.
+
+   The report shows the RMS level of the silent part (1–2 s) and of the
+   voice part (3–5 s), and `rms_profile_0.5s` with the level of each half
+   second. The first value is usually high: the mic path powers up with a
+   short pop when the codec wakes. Speech should be clearly above the
+   silence: 3–7× in the maintainer's tests.
 
 ## 2. 3-pole headphones
 

@@ -209,14 +209,19 @@ def rms(x):
     if not x: return 0.0
     m = sum(x) / len(x)
     return math.sqrt(sum((v - m) ** 2 for v in x) / len(x))
-sil = s[int(0.2 * rate):int(1.8 * rate)]
-voice = s[int(2.5 * rate):]
+# Skip the first second: the mic path powers up with a pop when the codec
+# leaves runtime suspend. Speech starts late (capture start-up latency
+# plus reaction time after the prompt), so take the voice from 3 s on.
+sil = s[int(1.0 * rate):int(2.0 * rate)]
+voice = s[int(3.0 * rate):]
 print("  samples: %d (S16_LE, 48 kHz, mono, default input)" % n)
 print("  rms_silence: %.1f" % rms(sil))
 print("  rms_voice: %.1f" % rms(voice))
 print("  peak: %d" % max((abs(v) for v in s), default=0))
 r = rms(voice) / max(rms(sil), 1e-9)
 print("  voice_to_silence_ratio: %.1f" % r)
+prof = [rms(s[i:i + rate // 2]) for i in range(0, n - rate // 2 + 1, rate // 2)]
+print("  rms_profile_0.5s: " + " ".join("%.0f" % v for v in prof))
 PY
 	else
 		echo "  recording: failed (arecord could not open the default input)"
